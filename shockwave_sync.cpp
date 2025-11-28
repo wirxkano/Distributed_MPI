@@ -191,9 +191,9 @@ void parallel_compute(int rstart, int rend, vector<double> &local_grid, vector<d
         MPI_Barrier(MPI_COMM_WORLD);
 
         // Assemble a global map after each time step (stimulation map at each time step)
-        MPI_Allgatherv(local_grid.data(), (rend - rstart) * N, MPI_DOUBLE,
-                       global_grid.data(), recvcounts.data(), displs.data(), MPI_DOUBLE,
-                       MPI_COMM_WORLD);
+        // MPI_Allgatherv(local_grid.data(), (rend - rstart) * N, MPI_DOUBLE,
+        //                global_grid.data(), recvcounts.data(), displs.data(), MPI_DOUBLE,
+        //                MPI_COMM_WORLD);
     }
 
     TaskQueue::get()->shutdown();

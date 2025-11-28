@@ -116,25 +116,14 @@ double parallel(vector<vector<double>> &mat, int rsize, int csize, int world_ran
             }
         }
 
-        if (recv_count > 0)
-            MPI_Waitall(recv_count, recv_reqs, MPI_STATUSES_IGNORE);
-        if (send_count > 0)
-            MPI_Waitall(send_count, send_reqs, MPI_STATUSES_IGNORE);
+        MPI_Waitall(recv_count, recv_reqs, MPI_STATUSES_IGNORE);
+        // MPI_Waitall(send_count, send_reqs, MPI_STATUSES_IGNORE);
 
-        if (world_rank > 0)
+#pragma omp parallel for
+        for (int c = 0; c < csize; ++c)
         {
-            for (int c = 0; c < csize; ++c)
-            {
-                conv_local[0][c] = conv(local, PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
-            }
-        }
-
-        if (world_rank < world_size - 1)
-        {
-            for (int c = 0; c < csize; ++c)
-            {
-                conv_local[local_rows - 1][c] = conv(local, local_rows - 1 + PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
-            }
+            conv_local[0][c] = conv(local, PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
+            conv_local[local_rows - 1][c] = conv(local, local_rows - 1 + PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
         }
 
 // copy back to local mat for next iteration

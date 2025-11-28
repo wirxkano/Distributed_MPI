@@ -188,9 +188,9 @@ void parallel_compute(int rstart, int rend, vector<double> &local_grid, vector<d
         TaskQueue::get()->wait_all();
     }
 
-    MPI_Allgatherv(local_grid.data(), (rend - rstart) * N, MPI_DOUBLE,
-                   global_grid.data(), recvcounts.data(), displs.data(),
-                   MPI_DOUBLE, MPI_COMM_WORLD);
+    // MPI_Allgatherv(local_grid.data(), (rend - rstart) * N, MPI_DOUBLE,
+    //                global_grid.data(), recvcounts.data(), displs.data(),
+    //                MPI_DOUBLE, MPI_COMM_WORLD);
 
     TaskQueue::get()->shutdown();
     for (Worker *w : workers)
