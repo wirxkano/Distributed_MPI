@@ -87,27 +87,24 @@ double parallel(vector<vector<double>> &mat, int rsize, int csize, int world_ran
     for (int step = 1; step <= NUM_ITER; ++step)
     {
         // Exchange boundary values with its neighboring processes
-        MPI_Request recv_reqs[2];
-        int recv_count = 0;
+        MPI_Request recv_reqs[2], send_reqs[2];
+        int recv_count = 0, send_count = 0;
 
-        // Receive from top neighbor
         if (world_rank > 0)
-            MPI_Irecv(local[0].data() + PAD_SIZE, csize, MPI_DOUBLE, world_rank - 1, 0, MPI_COMM_WORLD, &recv_reqs[recv_count++]);
+        {
+            MPI_Irecv(local[0].data() + PAD_SIZE, csize, MPI_DOUBLE,
+                      world_rank - 1, 0, MPI_COMM_WORLD, &recv_reqs[recv_count++]);
+            MPI_Isend(local[PAD_SIZE].data() + PAD_SIZE, csize, MPI_DOUBLE,
+                      world_rank - 1, 0, MPI_COMM_WORLD, &send_reqs[send_count++]);
+        }
 
-        // Receive from bottom neighbor
         if (world_rank < world_size - 1)
-            MPI_Irecv(local[local_rows + PAD_SIZE].data() + PAD_SIZE, csize, MPI_DOUBLE, world_rank + 1, 0, MPI_COMM_WORLD, &recv_reqs[recv_count++]);
-
-        MPI_Request send_reqs[2];
-        int send_count = 0;
-
-        // Send top row to upper neighbor
-        if (world_rank > 0)
-            MPI_Isend(local[PAD_SIZE].data() + PAD_SIZE, csize, MPI_DOUBLE, world_rank - 1, 0, MPI_COMM_WORLD, &send_reqs[send_count++]);
-
-        // Send bottom row to lower neighbor
-        if (world_rank < world_size - 1)
-            MPI_Isend(local[local_rows].data() + PAD_SIZE, csize, MPI_DOUBLE, world_rank + 1, 0, MPI_COMM_WORLD, &send_reqs[send_count++]);
+        {
+            MPI_Irecv(local[local_rows + PAD_SIZE].data() + PAD_SIZE, csize, MPI_DOUBLE,
+                      world_rank + 1, 0, MPI_COMM_WORLD, &recv_reqs[recv_count++]);
+            MPI_Isend(local[local_rows].data() + PAD_SIZE, csize, MPI_DOUBLE,
+                      world_rank + 1, 0, MPI_COMM_WORLD, &send_reqs[send_count++]);
+        }
 
 // Compute Convolution
 #pragma omp parallel for collapse(2)
@@ -122,20 +119,18 @@ double parallel(vector<vector<double>> &mat, int rsize, int csize, int world_ran
         if (recv_count > 0)
             MPI_Waitall(recv_count, recv_reqs, MPI_STATUSES_IGNORE);
         if (send_count > 0)
-            MPI_Waitall(send_count, recv_reqs, MPI_STATUSES_IGNORE);
+            MPI_Waitall(send_count, send_reqs, MPI_STATUSES_IGNORE);
 
         if (world_rank > 0)
         {
-#pragma omp parallel for
             for (int c = 0; c < csize; ++c)
             {
-                conv_local[0][c] = conv(local, 0 + PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
+                conv_local[0][c] = conv(local, PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
             }
         }
 
         if (world_rank < world_size - 1)
         {
-#pragma omp parallel for
             for (int c = 0; c < csize; ++c)
             {
                 conv_local[local_rows - 1][c] = conv(local, local_rows - 1 + PAD_SIZE - (K_SIZE / 2), c + PAD_SIZE - (K_SIZE / 2));
@@ -151,16 +146,11 @@ double parallel(vector<vector<double>> &mat, int rsize, int csize, int world_ran
                 local[r + PAD_SIZE][c + PAD_SIZE] = conv_local[r][c];
             }
         }
-
-        // synchronizes with other processes before moving to the next step
-        MPI_Barrier(MPI_COMM_WORLD);
     }
 
     // Stop signal is distributed to all processes using MPI Broadcast
     if (world_rank == 0)
         stop_signal = 1;
-
-    MPI_Bcast(&stop_signal, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (stop_signal == 1 && world_rank == 0)
         cout << "Broadcasted stop signal to all processes.\n";

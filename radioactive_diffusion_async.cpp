@@ -164,9 +164,6 @@ double parallel(vector<vector<double>> &mat, int rsize, int csize, int world_ran
 
         if (world_rank == 0)
             cout << "Iteration " << step << ": uncontaminated block = " << total_uncontaminated << '\n';
-
-        // synchronizes with other processes before moving to the next step
-        MPI_Barrier(MPI_COMM_WORLD);
     }
 
     // Stop signal is distributed to all processes using MPI Broadcast
